@@ -1,0 +1,117 @@
+﻿@*@{
+        ViewBag.Title = "SignalRChat";
+    }*@
+
+@section scripts{
+    <script src="~/Scripts/jquery-ui-1.12.1.min.js"></script>
+    <script src="~/Scripts/jquery.signalR-2.4.1.min.js"></script>
+    @Scripts.Render("/signalr/hubs")
+
+    <script type="text/javascript">
+        $(function () {
+            showModalUserNickName();
+        });
+
+        function showModalUserNickName() {
+            $("#dialog").dialog({
+                modal: true,
+                buttons: {
+                    Ok: function () {
+                        $(this).dialog("close")
+                        startChatHub();
+                    }
+                }
+            })
+        }
+
+        function startChatHub() {
+            var chat = $.connection.chatHub;
+
+            //Get User Name
+            $("#nickname").val($("#nick").val());
+
+            chat.client.differentName = function (name) {
+                showModalUserNickName();
+                return false;
+                //For Different User Name
+                $("#nickname").val($("#nick").val());
+                chat.server.notify($("#nickname").val(), $.connection.hub.id);
+            };
+
+            chat.client.online = function (name) {
+                if (name == $("#nickname").val()) {
+                    $("#onlineusers").append('<div class="border" style="color:blue"> You : ' + name + '</div>')
+                }
+                else {
+                    $("#onlineusers").append('<div class="border">' + name + '</div>')
+                    $("#users").append('<option value="' + name + '">' + name + '</option>')
+                }
+            };
+
+            chat.client.enters = function (name) {
+                $('#chatlog').append('<div><i>' + name + ' joins the conversation</i></div>')
+                $("#users").append('<option value="' + name + '">' + name + '</option>')
+                $("#onlineusers").append('<div class="border">' + name + '</div>')
+            }
+
+            chat.client.broadcastMessage = function (name, message) {
+                $('#chatlog').append('<div><span style="color:red">' + name + '</span> :: ' + message + '</div>')
+            };
+
+            chat.client.disconnected = function (name) {
+                $('#chatlog').append('<div style="color:red"><i>' + name + ' leaves the conversation</i></div>')
+                $("#onlineusers div").remove(":contains('" + name + "')");
+                $("#users option").remove(":contains('" + name + "')");
+            }
+
+            //Start the Connection
+            $.connection.hub.start().done(function () {
+                chat.server.notify($('#nickname').val(), $.connection.hub.id);
+                $('#btnsend').click(function () {
+                    if ($('#users').val() == "All") {
+                        chat.server.send($('#nickname').val(), $('#message').val());
+                    }
+                    else {
+                        chat.server.sendToSpecific($('#nickname').val(), $('#message').val(), $('#users').val());
+                    }
+                    $('#message').val('').focus();
+                })
+            })
+
+        }
+
+    </script>
+
+}
+
+
+
+
+
+<h2>SignalRChat</h2>
+
+<div id="container">
+    <input type="hidden" id="nickname" />
+    <div id="chatlog">
+
+    </div>
+    <div id="onlineusers">
+        <b>Online Users</b>
+    </div>
+    <div id="chatarea">
+        <div class="messagelog">
+            <textarea class="messagebox" id="message" spellcheck="true"></textarea>
+        </div>
+        <div class="actionpane">
+            <input type="button" id="btnsend" value="Send" />
+        </div>
+        <div class="actionpane">
+            <select id="users">
+                <option value="All"> All Connected Users</option>
+            </select>
+        </div>
+    </div>
+    <div id="dialog" title="Enter Your Name to Start Chat!!!">
+        <input type="text" id="nick" />
+    </div>
+</div>
